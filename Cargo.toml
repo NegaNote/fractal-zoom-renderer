@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.98"
 num-complex = { version = "0.4.6", features = ["serde"] }
+rayon = "1.10.0"
 serde = "1.0.219"
 softbuffer = "0.4.6"
 winit = { version = "0.30.11", features = ["rwh_06"] }

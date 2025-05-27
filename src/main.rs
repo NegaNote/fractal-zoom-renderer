@@ -1,4 +1,6 @@
 use anyhow::Result;
+use rayon::iter::ParallelIterator;
+use rayon::slice::ParallelSliceMut;
 use softbuffer::{Context, Surface};
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -46,12 +48,18 @@ impl ApplicationHandler for App {
                         .resize(width, height)
                         .expect("Failed to resize surface");
                     let mut buffer = surface.buffer_mut().expect("Failed to get buffer");
-                    (0..height.get()).for_each(|y| {
-                        (0..width.get()).for_each(|x| {
-                            let index = y as usize * width.get() as usize + x as usize;
-                            buffer[index] = (x + y) % 256;
-                        })
-                    });
+                    buffer
+                        .as_mut()
+                        .iter_mut()
+                        .enumerate()
+                        .collect::<Vec<(usize, &mut u32)>>()
+                        .par_chunks_exact_mut(1)
+                        .for_each(|inner| {
+                            let index = inner[0].0;
+                            let y = index / width.get() as usize;
+                            let x = index % width.get() as usize;
+                            *(inner[0].1) = (x + y) as u32;
+                        });
 
                     buffer.present().unwrap();
                 }
