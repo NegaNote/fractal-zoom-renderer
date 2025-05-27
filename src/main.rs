@@ -1,6 +1,5 @@
 use anyhow::Result;
-use rayon::iter::ParallelIterator;
-use rayon::slice::ParallelSliceMut;
+use rayon::prelude::*;
 use softbuffer::{Context, Surface};
 use std::num::NonZeroU32;
 use std::sync::Arc;
