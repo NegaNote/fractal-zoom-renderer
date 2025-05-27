@@ -1,9 +1,11 @@
 use anyhow::Result;
+use num_complex::Complex64;
 use rayon::prelude::*;
 use softbuffer::{Context, Surface};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
+use winit::dpi::{PhysicalSize, Size};
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
@@ -15,9 +17,11 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let mut attrs = Window::default_attributes();
+        attrs.inner_size = Some(Size::Physical(PhysicalSize::new(700, 400)));
         self.window = Some(Arc::new(
             event_loop
-                .create_window(Window::default_attributes())
+                .create_window(attrs)
                 .expect("Failed to create window"),
         ));
     }
@@ -57,7 +61,7 @@ impl ApplicationHandler for App {
                             let index = inner[0].0;
                             let y = index / width.get() as usize;
                             let x = index % width.get() as usize;
-                            *(inner[0].1) = (x + y) as u32;
+                            *(inner[0].1) = colored(x, y, width.get(), height.get());
                         });
 
                     buffer.present().unwrap();
@@ -66,6 +70,32 @@ impl ApplicationHandler for App {
             _ => (),
         }
     }
+}
+
+fn colored(x: usize, y: usize, width: u32, height: u32) -> u32 {
+    let real_coord = (x as f64 / width as f64) * 3.5 - 2.5;
+
+    let imag_coord = (y as f64 / height as f64) * -2.0 + 1.0;
+    let coord = Complex64::new(real_coord, imag_coord);
+
+    let max_iterations = 1000;
+
+    let mut iterations = 0;
+    let mut z = Complex64::new(0.0, 0.0);
+
+    for _ in 0..max_iterations {
+        iterations += 1;
+        z = z * z + coord;
+        if (z.re * z.re + z.im * z.im) > 4.0 {
+            break;
+        }
+    }
+
+    let red = ((iterations as f64) * 255.0 / (max_iterations as f64)) as u32;
+    let green = ((iterations as f64) * 255.0 / (max_iterations as f64)) as u32;
+    let blue = ((iterations as f64) * 255.0 / (max_iterations as f64)) as u32;
+
+    blue | (green << 8) | (red << 16)
 }
 
 fn main() -> Result<()> {
