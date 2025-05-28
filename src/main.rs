@@ -61,7 +61,19 @@ impl ApplicationHandler for App {
                             let index = inner[0].0;
                             let y = index / width.get() as usize;
                             let x = index % width.get() as usize;
-                            *(inner[0].1) = colored(x, y, width.get(), height.get());
+                            *(inner[0].1) = colored(
+                                x,
+                                y,
+                                width.get(),
+                                height.get(),
+                                Fractal::Mandelbrot(2),
+                                RenderBox {
+                                    left: -2.5,
+                                    right: 1.0,
+                                    bottom: -1.0,
+                                    top: 1.0,
+                                },
+                            );
                         });
 
                     buffer.present().unwrap();
@@ -72,30 +84,63 @@ impl ApplicationHandler for App {
     }
 }
 
-fn colored(x: usize, y: usize, width: u32, height: u32) -> u32 {
-    let real_coord = (x as f64 / width as f64) * 3.5 - 2.5;
+#[derive(Debug, Copy, Clone)]
+enum Fractal {
+    Mandelbrot(i32),
+    Julia(i32, Complex64),
+}
 
-    let imag_coord = (y as f64 / height as f64) * -2.0 + 1.0;
-    let coord = Complex64::new(real_coord, imag_coord);
+#[derive(Debug, Copy, Clone)]
+struct RenderBox {
+    left: f64,
+    right: f64,
+    bottom: f64,
+    top: f64,
+}
+
+fn colored(
+    x: usize,
+    y: usize,
+    width: u32,
+    height: u32,
+    fractal: Fractal,
+    render_box: RenderBox,
+) -> u32 {
+    let real_coord = (x as f64 / width as f64) * (render_box.right - render_box.left) + render_box.left;
+
+    let imag_coord = (y as f64 / height as f64) * (render_box.bottom - render_box.top) + render_box.top;
 
     let max_iterations = 1000;
+    
+    let iters = match fractal {
+        Fractal::Mandelbrot(power) => {
+            let mut c = Complex64::new(real_coord, imag_coord);
+            let mut z = Complex64::new(0.0, 0.0);
+            iterations(&mut z, &mut c, max_iterations, power)
+        },
+        Fractal::Julia(power, mut c) => {
+            let mut z = Complex64::new(real_coord, imag_coord);
+            iterations(&mut z, &mut c, max_iterations, power)
+        }
+    };
 
-    let mut iterations = 0;
-    let mut z = Complex64::new(0.0, 0.0);
+    let red = ((iters as f64) * 255.0 / (max_iterations as f64)) as u32;
+    let green = ((iters as f64) * 255.0 / (max_iterations as f64)) as u32;
+    let blue = ((iters as f64) * 255.0 / (max_iterations as f64)) as u32;
 
+    blue | (green << 8) | (red << 16)
+}
+
+fn iterations(z: &mut Complex64, c: &mut Complex64, max_iterations: i32, power: i32) -> i32 {
+    let mut iters = 0;
     for _ in 0..max_iterations {
-        iterations += 1;
-        z = z * z + coord;
+        iters += 1;
+        *z = z.powi(power) + *c;
         if (z.re * z.re + z.im * z.im) > 4.0 {
             break;
         }
     }
-
-    let red = ((iterations as f64) * 255.0 / (max_iterations as f64)) as u32;
-    let green = ((iterations as f64) * 255.0 / (max_iterations as f64)) as u32;
-    let blue = ((iterations as f64) * 255.0 / (max_iterations as f64)) as u32;
-
-    blue | (green << 8) | (red << 16)
+    iters
 }
 
 fn main() -> Result<()> {
